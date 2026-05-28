@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Equal Square Chess — AI & Two‑Player | Slide Sounds + Animations</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+  <style>
+    * {
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: linear-gradient(145deg, #1e1a12 0%, #2c2418 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Georgia', 'Cinzel', 'Times New Roman', serif;
+      margin: 0;
+      padding: 20px;
+    }
+
+    /* --- MODAL / START SCREEN --- */
+    .mode-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(8px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .mode-card {
+      background: #2c241ae0;
+      border: 2px solid #c9aa5f;
+      border-radius: 3rem;
+      padding: 2rem 2rem 2.5rem;
+      text-align: center;
+      max-width: 450px;
+      width: 90%;
+      box-shadow: 0 25px 40px black;
+    }
+
+    .mode-card h2 {
+      color: #efd6a7;
+      font-size: 2.2rem;
+      margin: 0 0 0.5rem;
+      text-shadow: 3px 3px 0 #2a241a;
+    }
+
+    .mode-card p {
+      color: #cbae7a;
+      margin-bottom: 2rem;
+      font-style: italic;
+    }
+
+    .mode-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+    }
+
+    .mode-btn {
+      background: #3f2c16;
+      border: none;
+      font-family: 'Cinzel', Georgia, serif;
+      font-weight: bold;
+      font-size: 1.2rem;
+      padding: 0.8rem 1.8rem;
+      border-radius: 3rem;
+      color: #fbeba0;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 5px 0 #1f170b;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .mode-btn:active {
+      transform: translateY(2px);
+      box-shadow: 0 2px 0 #1f170b;
+    }
+
+    .mode-btn:hover {
+      background: #5f4428;
+      color: #ffffcc;
+      transform: scale(1.02);
+    }
+
+    /* --- MAIN GAME CONTAINER --- */
+    .battle-container {
+      background: #2f2a1f;
+      padding: 1.5rem;
+      border-radius: 4rem 2rem 4rem 2rem;
+      box-shadow: 0 25px 40px rgba(0, 0, 0, 0.6), inset 0 1px 2px rgba(255, 215, 140, 0.3);
+      border: 1px solid #b97f44;
+      display: none;
+    }
+
+    .chess-campaign {
+      background: #1a150e;
+      border-radius: 2rem;
+      padding: 1rem;
+      box-shadow: inset 0 0 15px rgba(0,0,0,0.8), 0 10px 20px rgba(0,0,0,0.3);
+    }
+
+    h1 {
+      text-align: center;
+      margin: 0 0 0.8rem;
+      font-size: 1.8rem;
+      letter-spacing: 3px;
+      text-shadow: 3px 3px 0px #2a241a;
+      color: #efd6a7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .board-wrapper {
+      display: flex;
+      justify-content: center;
+      background: #3a2c1c;
+      padding: 1.2rem;
+      border-radius: 2rem;
+      box-shadow: inset 0 0 0 2px #806a42, 0 10px 20px black;
+    }
+
+    /* ===== PERFECTLY EQUAL SQUARES ===== */
+    /* Fixed size desktop: 8 x 70px = 560px board, each square exactly 70x70px */
+    .chessboard {
+      display: grid;
+      grid-template-columns: repeat(8, 70px);
+      grid-template-rows: repeat(8, 70px);
+      background-color: #deb887;
+      box-shadow: 0 0 0 6px #4f3a24, 0 12px 28px black;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    /* Responsive: on small screens, use viewport-relative sizing but keep squares perfectly equal */
+    @media (max-width: 680px) {
+      .chessboard {
+        width: min(85vw, 85vh);
+        height: min(85vw, 85vh);
+        grid-template-columns: repeat(8, 1fr);
+        grid-template-rows: repeat(8, 1fr);
+      }
+    }
+
+    .square {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;          /* base size for fixed layout */
+      font-weight: 500;
+      transition: all 0.08s linear;
+      cursor: pointer;
+      position: relative;
+    }
+
+    /* responsive font size for small screens */
+    @media (max-width: 680px) {
+      .square {
+        font-size: calc(min(85vw, 85vh) / 12);
+      }
+    }
+
+    .square.light {
+      background-color: #ecd9b4;
+      background-image: radial-gradient(circle at 25% 40%, rgba(185, 130, 70, 0.1) 2%, transparent 2.5%);
+    }
+    .square.dark {
+      background-color: #6f4e2e;
+      background-image: radial-gradient(circle at 70% 30%, rgba(0,0,0,0.2) 2%, transparent 3%);
+    }
+
+    .square.selected {
+      box-shadow: inset 0 0 0 4px #ffcd7e, inset 0 0 0 8px rgba(255, 205, 100, 0.4);
+      transform: scale(0.98);
+    }
+
+    .square.legal-move::after {
+      content: "⚔️";
+      position: absolute;
+      font-size: 28px;
+      opacity: 0.7;
+      color: #ffc857;
+      text-shadow: 0 0 4px rgb(200, 60, 0);
+      pointer-events: none;
+    }
+    @media (max-width: 550px) {
+      .square.legal-move::after {
+        font-size: 20px;
+        content: "⚔";
+      }
+    }
+
+    .square.in-check {
+      animation: warDrums 0.6s infinite alternate;
+      box-shadow: inset 0 0 0 3px #e33, 0 0 0 2px #a00;
+    }
+    @keyframes warDrums {
+      0% { background-color: rgba(200, 60, 40, 0.2); }
+      100% { background-color: rgba(220, 30, 20, 0.5); }
+    }
+
+    /* Slide animation flash */
+    .move-flash {
+      animation: boardFlash 0.25s ease-out 2;
+    }
+    @keyframes boardFlash {
+      0% { filter: brightness(1); background-color: #ffdd99; box-shadow: inset 0 0 0 2px gold; }
+      100% { filter: brightness(1); background-color: inherit; box-shadow: none; }
+    }
+
+    .piece {
+      display: block;
+      font-size: inherit;
+      font-weight: normal;
+      transition: transform 0.1s;
+      text-shadow: 1px 1px 1px rgba(0,0,0,0.6);
+    }
+    .piece-white {
+      color: #ffffff;
+      text-shadow: 1px 1px 2px #000000, 0 0 2px #000000;
+    }
+    .piece-black {
+      color: #1a1a1a;
+      text-shadow: 0 0 1px #d4c5a0, 1px 1px 0px #b59a6b;
+    }
+    .square:hover .piece { transform: scale(1.05); }
+
+    .war-council {
+      background: #2c2416e0;
+      margin-top: 1.2rem;
+      padding: 0.8rem 1.2rem;
+      border-radius: 3rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 15px;
+      font-weight: bold;
+      border: 1px solid #c9aa5f;
+      box-shadow: 0 5px 12px black;
+    }
+
+    .turn-flag {
+      background: #1e1910;
+      padding: 0.5rem 1.2rem;
+      border-radius: 3rem;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 1.2rem;
+      color: #ffdd99;
+    }
+    .turn-flag span { font-size: 1.8rem; }
+
+    .war-message {
+      background: #0c0a05;
+      padding: 0.4rem 1.2rem;
+      border-radius: 2rem;
+      font-size: 0.95rem;
+      font-weight: bold;
+      color: #f7e5c2;
+      font-family: monospace;
+      flex: 1;
+      text-align: center;
+      border-left: 3px solid #bf8f40;
+      border-right: 3px solid #bf8f40;
+    }
+
+    button {
+      background: #3f2c16;
+      border: none;
+      font-family: 'Cinzel', Georgia, serif;
+      font-weight: bold;
+      font-size: 0.9rem;
+      padding: 0.6rem 1.2rem;
+      border-radius: 3rem;
+      color: #fbeba0;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 3px 0 #1f170b;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    button:active { transform: translateY(2px); box-shadow: 0 1px 0 #1f170b; }
+    button:hover { background: #5f4428; color: #ffffcc; }
+
+    .battle-quote {
+      text-align: center;
+      font-size: 0.7rem;
+      margin-top: 0.8rem;
+      color: #cbae7a;
+      font-style: italic;
+    }
+
+    @media (max-width: 600px) {
+      .war-council { flex-direction: column; align-items: stretch; text-align: center; }
+      .turn-flag { justify-content: center; }
+      h1 { font-size: 1.2rem; }
+      button { justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- MODE SELECTION OVERLAY -->
+<div id="modeOverlay" class="mode-overlay">
+  <div class="mode-card">
+    <h2>⚔️ EQUAL SQUARE CHESS ⚔️</h2>
+    <p>Every block perfectly equal — choose your battle</p>
+    <div class="mode-buttons">
+      <button id="aiModeBtnSelect" class="mode-btn">🤖 VS AI (Play White)</button>
+      <button id="twoPlayerBtnSelect" class="mode-btn">👥 TWO PLAYER MODE</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN GAME CONTAINER -->
+<div id="gameContainer" class="battle-container">
+  <div class="chess-campaign">
+    <h1><span>⚔️</span> EQUAL SQUARES <span>🛡️</span></h1>
+    <div class="board-wrapper">
+      <div class="chessboard" id="chessboard"></div>
+    </div>
+    <div class="war-council">
+      <div class="turn-flag" id="turnFlag">
+        <span id="turnIcon">♔</span>
+        <span id="turnText">White's Command</span>
+      </div>
+      <div class="war-message" id="statusMsg">Choose your first assault</div>
+      <button id="resetBtn">🔄 RESET</button>
+      <button id="menuBtn">🏠 MENU</button>
+      <button id="soundToggleBtn" class="sound-toggle">🔊 SOUND ON</button>
+    </div>
+    <div class="battle-quote">“70×70 pixels — perfect equality. Slide sounds + animations.”</div>
+  </div>
+</div>
+
+<script>
+  // ------------------------- SLIDE SOUND MANAGER (Web Audio) -------------------------
+  const SoundFX = (function() {
+    let audioCtx = null;
+    let enabled = true;
+
+    function initAudio() {
+      if (audioCtx) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    // Frequency sweep (glissando) for "slide" effect
+    function playSlideSound(freqStart, freqEnd, duration, volume = 0.25, type = 'sine') {
+      if (!enabled) return;
+      try {
+        initAudio();
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = type;
+        osc.frequency.setValueAtTime(freqStart, now);
+        osc.frequency.exponentialRampToValueAtTime(freqEnd, now + duration);
+        gain.gain.setValueAtTime(volume, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+        osc.start();
+        osc.stop(now + duration);
+      } catch(e) { console.warn(e); }
+    }
+
+    return {
+      enable: () => { enabled = true; },
+      disable: () => { enabled = false; },
+      toggle: () => { enabled = !enabled; return enabled; },
+      move: () => playSlideSound(550, 380, 0.12, 0.2, 'sine'),
+      capture: () => playSlideSound(400, 280, 0.18, 0.25, 'triangle'),
+      check: () => playSlideSound(880, 620, 0.2, 0.3, 'square'),
+      gameOver: () => playSlideSound(300, 150, 0.7, 0.35, 'sawtooth'),
+      start: () => playSlideSound(600, 800, 0.25, 0.2, 'sine')
+    };
+  })();
+
+  // ------------------------- GLOBAL STATE -------------------------
+  let game;
+  let selectedSquare = null;
+  let legalTargets = [];
+  let currentMode = null;        // 'ai' or 'twoPlayer'
+  let isAIThinking = false;
+
+  const modeOverlay = document.getElementById('modeOverlay');
+  const gameContainer = document.getElementById('gameContainer');
+  const boardElement = document.getElementById('chessboard');
+  const resetBtn = document.getElementById('resetBtn');
+  const menuBtn = document.getElementById('menuBtn');
+  const soundToggleBtn = document.getElementById('soundToggleBtn');
+  const turnFlagIcon = document.getElementById('turnIcon');
+  const turnFlagText = document.getElementById('turnText');
+  const statusMsgDiv = document.getElementById('statusMsg');
+
+  // ------------------------- HELPERS -------------------------
+  function getPieceSymbol(piece) {
+    if (!piece) return "";
+    const symbols = {
+      'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟',
+      'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙'
+    };
+    return symbols[piece.type === 'k' ? (piece.color === 'w' ? 'K' : 'k') :
+                   piece.type === 'q' ? (piece.color === 'w' ? 'Q' : 'q') :
+                   piece.type === 'r' ? (piece.color === 'w' ? 'R' : 'r') :
+                   piece.type === 'b' ? (piece.color === 'w' ? 'B' : 'b') :
+                   piece.type === 'n' ? (piece.color === 'w' ? 'N' : 'n') :
+                   (piece.color === 'w' ? 'P' : 'p')];
+  }
+
+  function findKingSquare(color) {
+    const boardState = game.board();
+    for (let i = 0; i < 8; i++) {
+      for (let j = 0; j < 8; j++) {
+        const piece = boardState[i][j];
+        if (piece && piece.type === 'k' && piece.color === color) {
+          const file = String.fromCharCode(97 + j);
+          const rank = 8 - i;
+          return file + rank;
+        }
+      }
+    }
+    return null;
+  }
+
+  function computeLegalTargets(square) {
+    if (!game) return [];
+    const piece = game.get(square);
+    if (!piece) return [];
+    const turn = game.turn();
+    if ((piece.color === 'w' && turn !== 'w') || (piece.color === 'b' && turn !== 'b')) return [];
+    const moves = game.moves({ verbose: true });
+    return moves.filter(m => m.from === square).map(m => m.to);
+  }
+
+  function animateMove(fromSquare, toSquare) {
+    const squares = document.querySelectorAll('.square');
+    squares.forEach(sq => {
+      const name = sq.getAttribute('data-square');
+      if (name === fromSquare || name === toSquare) {
+        sq.classList.add('move-flash');
+        setTimeout(() => sq.classList.remove('move-flash'), 300);
+      }
+    });
+  }
+
+  function applyMoveWithSoundAndAnim(from, to) {
+    if (!game || game.game_over()) return false;
+    const moves = game.moves({ verbose: true });
+    const moveObj = moves.find(m => m.from === from && m.to === to);
+    if (!moveObj) return false;
+
+    const wasCapture = !!moveObj.captured;
+    try {
+      const result = game.move({ from, to, promotion: 'q' });
+      if (!result) return false;
+
+      if (game.in_check()) SoundFX.check();
+      else if (wasCapture) SoundFX.capture();
+      else SoundFX.move();
+
+      if (game.game_over()) SoundFX.gameOver();
+      animateMove(from, to);
+      return true;
+    } catch(e) { return false; }
+  }
+
+  // ------------------------- AI -------------------------
+  function getBestAIMove() {
+    if (!game || game.game_over()) return null;
+    const moves = game.moves({ verbose: true });
+    if (moves.length === 0) return null;
+    const captureMoves = moves.filter(m => m.captured !== undefined);
+    if (captureMoves.length > 0) {
+      return captureMoves[Math.floor(Math.random() * captureMoves.length)];
+    }
+    return moves[Math.floor(Math.random() * moves.length)];
+  }
+
+  async function performAIMove() {
+    if (currentMode !== 'ai') return false;
+    if (isAIThinking || game.game_over() || game.turn() !== 'b') return false;
+
+    isAIThinking = true;
+    statusMsgDiv.innerHTML = "🤖 Dark army strategizing... 🤖";
+    await new Promise(resolve => setTimeout(resolve, 260));
+
+    if (currentMode !== 'ai' || game.game_over() || game.turn() !== 'b') {
+      isAIThinking = false;
+      return false;
+    }
+
+    const bestMove = getBestAIMove();
+    if (!bestMove) {
+      isAIThinking = false;
+      return false;
+    }
+
+    const success = applyMoveWithSoundAndAnim(bestMove.from, bestMove.to);
+    if (success) {
+      selectedSquare = null;
+      legalTargets = [];
+      renderBoard();
+      if (!game.game_over() && game.turn() === 'w' && currentMode === 'ai') {
+        statusMsgDiv.innerHTML = "⚔️ Your turn, commander. ⚔️";
+      }
+    } else {
+      renderBoard();
+    }
+    isAIThinking = false;
+    return success;
+  }
+
+  async function triggerAIIfNeeded() {
+    if (currentMode === 'ai' && !game.game_over() && game.turn() === 'b' && !isAIThinking) {
+      await performAIMove();
+    }
+  }
+
+  // ------------------------- RENDER BOARD (equal squares guaranteed) -------------------------
+  function renderBoard() {
+    if (!game) return;
+    const board = game.board();
+    boardElement.innerHTML = '';
+    const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+    const ranks = [8, 7, 6, 5, 4, 3, 2, 1];
+
+    for (let r of ranks) {
+      for (let f of files) {
+        const squareName = f + r;
+        const piece = game.get(squareName);
+        const squareDiv = document.createElement('div');
+        squareDiv.className = 'square';
+        const isLight = ((r + f.charCodeAt(0) - 'a'.charCodeAt(0)) % 2 === 0);
+        squareDiv.classList.add(isLight ? 'light' : 'dark');
+        squareDiv.setAttribute('data-square', squareName);
+
+        if (piece) {
+          const pieceSpan = document.createElement('span');
+          pieceSpan.className = 'piece';
+          pieceSpan.classList.add(piece.color === 'w' ? 'piece-white' : 'piece-black');
+          pieceSpan.textContent = getPieceSymbol(piece);
+          squareDiv.appendChild(pieceSpan);
+        }
+
+        if (selectedSquare === squareName) squareDiv.classList.add('selected');
+        if (legalTargets.includes(squareName)) squareDiv.classList.add('legal-move');
+
+        if (game.in_check()) {
+          const turnColor = game.turn();
+          const kingSquare = findKingSquare(turnColor);
+          if (kingSquare === squareName) squareDiv.classList.add('in-check');
+        }
+        boardElement.appendChild(squareDiv);
+      }
+    }
+
+    const turn = game.turn();
+    turnFlagIcon.innerHTML = turn === 'w' ? '♔' : '♚';
+    turnFlagText.innerHTML = turn === 'w' ? '⚔️ WHITE COMMANDS ⚔️' : '⚔️ BLACK COMMANDS ⚔️';
+
+    if (game.game_over()) {
+      if (game.in_checkmate()) {
+        const loser = game.turn();
+        const winner = loser === 'w' ? 'Black' : 'White';
+        statusMsgDiv.innerHTML = `🏆 CHECKMATE! ${winner} VICTORY! 🏆`;
+        turnFlagText.innerHTML = loser === 'w' ? '💀 BLACK WINS 💀' : '💀 WHITE WINS 💀';
+      } else if (game.in_stalemate()) {
+        statusMsgDiv.innerHTML = `⚖️ STALEMATE — ARMIES EXHAUSTED ⚖️`;
+        turnFlagText.innerHTML = '🏳️ TRUCE';
+      } else if (game.insufficient_material()) {
+        statusMsgDiv.innerHTML = `🕊️ INSUFFICIENT FORCES — PEACE 🕊️`;
+        turnFlagText.innerHTML = 'DRAW';
+      } else {
+        statusMsgDiv.innerHTML = `🏁 BATTLE ENDED 🏁`;
+      }
+    } else {
+      if (game.in_check()) {
+        statusMsgDiv.innerHTML = `⚠️ ${turn === 'w' ? 'WHITE' : 'BLACK'} KING UNDER ATTACK! ⚠️`;
+      } else {
+        if (turn === 'w') statusMsgDiv.innerHTML = `⚔️ White — plan your assault ⚔️`;
+        else if (currentMode === 'ai' && turn === 'b') statusMsgDiv.innerHTML = `🤖 AI is commanding the dark host... 🤖`;
+        else statusMsgDiv.innerHTML = `⚔️ Black — command your legions ⚔️`;
+      }
+    }
+  }
+
+  // ------------------------- HUMAN MOVE -------------------------
+  async function handleHumanMove(square) {
+    if (game.game_over()) {
+      statusMsgDiv.innerHTML = "Game over — press RESET or MENU.";
+      return false;
+    }
+    if (currentMode === 'ai' && game.turn() === 'b') {
+      statusMsgDiv.innerHTML = "🤖 AI controls Black. Wait for your turn (White).";
+      return false;
+    }
+
+    if (selectedSquare === null) {
+      const piece = game.get(square);
+      if (!piece) return false;
+      const currentTurn = game.turn();
+      if ((piece.color === 'w' && currentTurn === 'w') || (piece.color === 'b' && currentTurn === 'b')) {
+        selectedSquare = square;
+        legalTargets = computeLegalTargets(square);
+        renderBoard();
+        return false;
+      } else {
+        statusMsgDiv.innerHTML = `Not your ${piece.color === 'w' ? 'white' : 'black'} warrior!`;
+        return false;
+      }
+    } else {
+      const success = applyMoveWithSoundAndAnim(selectedSquare, square);
+      if (success) {
+        selectedSquare = null;
+        legalTargets = [];
+        renderBoard();
+        if (currentMode === 'ai' && !game.game_over() && game.turn() === 'b') {
+          await triggerAIIfNeeded();
+        }
+        return true;
+      } else {
+        const clickedPiece = game.get(square);
+        if (clickedPiece) {
+          const currentTurn = game.turn();
+          if ((clickedPiece.color === 'w' && currentTurn === 'w') || (clickedPiece.color === 'b' && currentTurn === 'b')) {
+            selectedSquare = square;
+            legalTargets = computeLegalTargets(square);
+            renderBoard();
+            return false;
+          }
+        }
+        selectedSquare = null;
+        legalTargets = [];
+        renderBoard();
+        statusMsgDiv.innerHTML = "Invalid move — rally your forces again.";
+        return false;
+      }
+    }
+  }
+
+  async function onSquareClick(e) {
+    const targetEl = e.target.closest('.square');
+    if (!targetEl) return;
+    if (isAIThinking) {
+      statusMsgDiv.innerHTML = "⚡ AI is thinking... wait ⚡";
+      return;
+    }
+    const square = targetEl.getAttribute('data-square');
+    if (!square) return;
+    await handleHumanMove(square);
+  }
+
+  // ------------------------- GAME CONTROL -------------------------
+  function resetGame() {
+    if (isAIThinking) return;
+    game = new Chess();
+    selectedSquare = null;
+    legalTargets = [];
+    renderBoard();
+    statusMsgDiv.innerHTML = "⚔️ New battle! White to move. ⚔️";
+    turnFlagText.innerHTML = "⚔️ WHITE COMMANDS ⚔️";
+    turnFlagIcon.innerHTML = "♔";
+    SoundFX.start();
+    if (currentMode === 'ai' && game.turn() === 'b') triggerAIIfNeeded();
+  }
+
+  function returnToMenu() {
+    if (isAIThinking) return;
+    gameContainer.style.display = 'none';
+    modeOverlay.style.display = 'flex';
+    game = null;
+    selectedSquare = null;
+    legalTargets = [];
+    currentMode = null;
+  }
+
+  function startGame(mode) {
+    currentMode = mode;
+    game = new Chess();
+    selectedSquare = null;
+    legalTargets = [];
+    isAIThinking = false;
+    renderBoard();
+    modeOverlay.style.display = 'none';
+    gameContainer.style.display = 'block';
+    statusMsgDiv.innerHTML = "⚔️ Horns of war! White to move. ⚔️";
+    turnFlagText.innerHTML = "⚔️ WHITE COMMANDS ⚔️";
+    turnFlagIcon.innerHTML = "♔";
+    SoundFX.start();
+    if (currentMode === 'ai' && game.turn() === 'b') triggerAIIfNeeded();
+  }
+
+  function toggleSound() {
+    const isNowOn = SoundFX.toggle();
+    soundToggleBtn.innerHTML = isNowOn ? "🔊 SOUND ON" : "🔇 SOUND OFF";
+  }
+
+  // ------------------------- EVENT BINDING -------------------------
+  function bindEvents() {
+    boardElement.addEventListener('click', onSquareClick);
+    resetBtn.addEventListener('click', () => resetGame());
+    menuBtn.addEventListener('click', () => returnToMenu());
+    soundToggleBtn.addEventListener('click', () => toggleSound());
+    document.getElementById('aiModeBtnSelect').addEventListener('click', () => startGame('ai'));
+    document.getElementById('twoPlayerBtnSelect').addEventListener('click', () => startGame('twoPlayer'));
+  }
+
+  bindEvents();
+  gameContainer.style.display = 'none';
+  modeOverlay.style.display = 'flex';
+</script>
+</body>
+</html>
